@@ -1,257 +1,267 @@
 # svelte-interactive-timeline
 
-A canvas-based interactive timeline component for Svelte 5 with zoom, pan, scrub, and pluggable rendering layers.
-
-Built for media playback interfaces, data visualization tools, and anywhere you need a high-performance timeline with rich interactions.
+A reusable timeline component library for Svelte 5 with canvas rendering.
 
 ## Features
 
-- **Canvas rendering** with DPI-aware scaling for crisp display on Retina screens
-- **Zoom** via scroll wheel (Ctrl/Cmd + scroll), buttons, or drag-to-zoom selection
-- **Pan** via scroll, Alt + drag, or middle-click drag
-- **Scrub** by clicking anywhere or dragging the playhead
-- **Playback controls** with play/pause, speed presets, and reset
-- **Pluggable render layers** — add custom visualizations between the background and playhead
-- **Responsive** — uses ResizeObserver, works at any width
-- **Self-contained styles** — no Tailwind, DaisyUI, or external CSS required
-- **TypeScript** throughout with full type exports
+- **Canvas-based rendering** for smooth performance
+- **Svelte 5 runes** for modern reactivity
+- **Customizable** colors, layout, and layers
+- **Interactive** - click to seek, drag to scrub, drag to zoom, scroll to pan
+- **DaisyUI** compatible styling
+- **TypeScript** support
 
 ## Installation
 
 ```bash
 npm install svelte-interactive-timeline
-# or
-yarn add svelte-interactive-timeline
 ```
-
-Requires Svelte 5 as a peer dependency.
 
 ## Quick Start
 
 ```svelte
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { TimelineContainer, timelineStore } from 'svelte-interactive-timeline';
-  import type { TimelineCallbacks, PlaybackState, PlaybackCallbacks } from 'svelte-interactive-timeline';
+  import { Timeline, createTimelineStore } from 'svelte-interactive-timeline';
 
-  let isPlaying = $state(false);
-  let speedIndex = $state(1);
-
-  const SPEED_PRESETS = [
-    { value: 0.5, label: '0.5x' },
-    { value: 1, label: '1x' },
-    { value: 2, label: '2x' },
-    { value: 5, label: '5x' },
-    { value: 10, label: '10x' },
-  ];
-
-  let playback: PlaybackState = $derived({
-    isPlaying,
-    speedIndex,
-    speedPresets: SPEED_PRESETS,
-  });
-
-  const playbackCallbacks: PlaybackCallbacks = {
-    onTogglePlayback: () => (isPlaying = !isPlaying),
-    onPause: () => (isPlaying = false),
-    onSpeedChange: (idx) => (speedIndex = idx),
-  };
-
-  const callbacks: TimelineCallbacks = {
-    onSeek: (time) => console.log('Seeked to', time),
-    onViewChange: (start, end) => console.log('View changed', start, end),
-  };
-
-  onMount(() => {
-    timelineStore.initialize(120); // 2-minute timeline
-  });
+  const store = createTimelineStore();
 </script>
 
-<TimelineContainer
-  height={60}
-  showControls={true}
-  {callbacks}
-  {playback}
-  {playbackCallbacks}
+<Timeline
+  {store}
+  endTime={120}
+  height={80}
+  onTimeChange={(time) => console.log('Time:', time)}
 />
 ```
 
 ## Components
 
-### `<TimelineContainer>`
+### Timeline
 
-The main component. Composes the canvas and controls.
+The main container component with canvas and controls.
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `endTime` | `number` | `0` | Initialize with this duration (alternative to calling `timelineStore.initialize()`) |
-| `height` | `number` | `80` | Canvas height in pixels |
-| `showControls` | `boolean` | `true` | Show the playback/zoom control bar |
-| `embedded` | `boolean` | `false` | Embedded mode — removes border/shadow |
-| `customLayers` | `RenderLayer[]` | `[]` | Custom render layers (inserted between background and playhead) |
-| `callbacks` | `TimelineCallbacks` | `{}` | Event callbacks for seek, view change, redraw |
-| `playback` | `PlaybackState` | — | Current playback state |
-| `playbackCallbacks` | `PlaybackCallbacks` | `{}` | Playback control callbacks |
-| `showGradientToggle` | `boolean` | `false` | Show an optional gradient toggle button |
-| `gradientActive` | `boolean` | `false` | Gradient toggle state |
-| `onGradientToggle` | `() => void` | — | Gradient toggle callback |
+```svelte
+<Timeline
+  {store}
+  endTime={120}
+  startTime={0}
+  height={80}
+  showControls={true}
+  showZoomControls={true}
+  showTimeDisplay={true}
+  timeFormat="hms"
+  embedded={false}
+  colors={customColors}
+  layout={customLayout}
+  layers={customLayers}
+  onTimeChange={(time) => {}}
+  onViewChange={(start, end) => {}}
+  onPlayheadDragStart={() => {}}
+  onPlayheadDragEnd={() => {}}
+/>
+```
 
-**Exported methods** (via `bind:this`):
-- `initialize(end, start?)` — set data range
-- `setCurrentTime(time)` — move playhead
-- `getRenderer()` — access the `TimelineRenderer` instance
+### TimelineCanvas
 
-### `<TimelineCanvas>`
+Just the canvas for custom layouts.
 
-The canvas element with pointer/wheel event handling. Used internally by `TimelineContainer`, but can be used standalone for custom layouts.
+```svelte
+<TimelineCanvas
+  {store}
+  colors={customColors}
+  layout={customLayout}
+  layers={customLayers}
+  onTimeChange={(time) => {}}
+  onViewChange={(start, end) => {}}
+/>
+```
 
-### `<TimelineControls>`
+### TimelineControls
 
-The control bar (play/pause, speed, zoom buttons, time display). Also used internally but available for custom layouts.
+Just the controls bar for custom layouts.
+
+```svelte
+<TimelineControls
+  {store}
+  showZoomControls={true}
+  showTimeDisplay={true}
+  timeFormat="hms"
+  onZoom={() => {}}
+/>
+```
 
 ## Store
 
-```ts
-import { timelineStore, createTimelineStore } from 'svelte-interactive-timeline';
+Create a timeline store to manage state:
+
+```typescript
+import { createTimelineStore } from 'svelte-interactive-timeline';
+
+const store = createTimelineStore({
+  minZoomDuration: 1, // Minimum 1 second when zoomed in
+  minZoomSelectionThreshold: 0.5 // Minimum selection to apply zoom
+});
+
+// Initialize with duration
+store.initialize(120); // 120 seconds
+
+// Programmatic control
+store.setCurrentTime(30);
+store.zoom(0.5); // Zoom in
+store.zoom(2); // Zoom out
+store.zoomToFit(); // Reset zoom
+store.pan(10); // Pan by 10 seconds
+store.setView(10, 60); // Set view window
+
+// Read state (reactive)
+console.log(store.currentTime);
+console.log(store.viewStart, store.viewEnd);
+console.log(store.isZoomed);
+console.log(store.zoomLevel);
 ```
 
-`timelineStore` is a default singleton. Use `createTimelineStore()` if you need multiple independent timelines.
+## Customization
 
-### Store Methods
+### Custom Colors
 
-| Method | Description |
-|--------|-------------|
-| `initialize(endTime, startTime?)` | Set data time range |
-| `reset()` | Reset to empty state |
-| `setCurrentTime(time)` | Move playhead (clamped to data range) |
-| `setView(start, end)` | Set visible window |
-| `zoom(factor, centerTime?)` | Zoom in (`< 1`) or out (`> 1`) around a point |
-| `zoomToFit()` | Reset view to show full data range |
-| `pan(deltaTime)` | Shift view by time offset |
-| `getState()` | Get current `TimelineState` snapshot |
-| `hasData()` | Whether timeline has been initialized |
+```typescript
+import { createColorScheme } from 'svelte-interactive-timeline';
 
-### Derived Stores
-
-```ts
-import { viewDuration, dataDuration, zoomLevel, isZoomed } from 'svelte-interactive-timeline';
+const customColors = createColorScheme({
+  accent: '#3b82f6', // Blue playhead
+  accentLight: '#60a5fa',
+  accentGlow: 'rgba(59, 130, 246, 0.4)',
+  zoomFill: 'rgba(16, 185, 129, 0.15)',
+  zoomStroke: 'rgba(16, 185, 129, 0.6)'
+});
 ```
 
-- `viewDuration` — current visible time span
-- `dataDuration` — total data time span
-- `zoomLevel` — ratio of data to view duration (1 = no zoom)
-- `isZoomed` — whether the timeline is zoomed in
+### Custom Layout
 
-## Custom Render Layers
+```typescript
+import { createLayoutConfig } from 'svelte-interactive-timeline';
 
-Add your own visualizations by implementing the `RenderLayer` interface:
+const customLayout = createLayoutConfig({
+  playheadHeadHeight: 18,
+  playheadHeadWidth: 16,
+  playheadLineWidth: 3,
+  labelFontSize: 11,
+  playheadHitTolerance: 12
+});
+```
 
-```ts
+### Custom Layers
+
+Add custom rendering layers:
+
+```typescript
 import type { RenderLayer, RenderContext } from 'svelte-interactive-timeline';
-
-const myLayer: RenderLayer = {
-  name: 'my-overlay',
-  visible: true,
-  render({ ctx, state, width, height, timeToX }: RenderContext) {
-    // Draw a marker at time = 30s
-    const x = timeToX(30);
-    ctx.fillStyle = 'rgba(59, 130, 246, 0.5)';
-    ctx.fillRect(x - 1, 0, 2, height);
-  },
-};
-```
-
-Pass custom layers via the `customLayers` prop — they render between the background grid and the playhead.
-
-You can also add/remove layers dynamically via the renderer:
-
-```ts
-const renderer = containerRef.getRenderer();
-renderer.addLayer(myLayer);    // inserted before playhead
-renderer.removeLayer('my-overlay');
-renderer.getLayer('my-overlay');
-```
-
-### RenderContext
-
-Every layer's `render()` receives:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `ctx` | `CanvasRenderingContext2D` | The canvas context (already DPI-scaled) |
-| `state` | `TimelineState` | Full timeline state snapshot |
-| `width` | `number` | Canvas width in CSS pixels |
-| `height` | `number` | Canvas height in CSS pixels |
-| `dpr` | `number` | Device pixel ratio |
-| `timeToX(time)` | `(number) => number` | Convert time to X pixel (respects zoom/pan) |
-| `xToTime(x)` | `(number) => number` | Convert X pixel to time (respects zoom/pan) |
-
-## Types
-
-All types are exported:
-
-```ts
-import type {
-  TimelineState,
-  RenderContext,
-  RenderLayer,
-  DragTarget,
-  HitTarget,
-  TimelineCallbacks,
-  PlaybackState,
-  PlaybackCallbacks,
-} from 'svelte-interactive-timeline';
-```
-
-## Utilities
-
-```ts
 import {
-  formatTime,       // (seconds, format?) => string
-  clamp,            // (value, min, max) => number
-  mapRange,         // (value, inStart, inEnd, outStart, outEnd) => number
-  generateGridLines, // (viewStart, viewEnd, maxLabels?) => GridLine[]
-  calculateGridInterval,
-  getDevicePixelRatio,
-  resetShadow,
+  BackgroundLayer,
+  PlayheadLayer,
+  HoverLayer,
+  ZoomSelectionLayer
 } from 'svelte-interactive-timeline';
+
+class MarkersLayer implements RenderLayer {
+  name = 'markers';
+  visible = true;
+  markers: number[] = [];
+
+  constructor(markers: number[]) {
+    this.markers = markers;
+  }
+
+  render(ctx: RenderContext): void {
+    const { ctx: c, height, timeToX } = ctx;
+
+    for (const marker of this.markers) {
+      const x = timeToX(marker);
+      if (x < 0 || x > ctx.width) continue;
+
+      c.fillStyle = '#10b981';
+      c.beginPath();
+      c.arc(x, 6, 4, 0, Math.PI * 2);
+      c.fill();
+    }
+  }
+}
+
+const customLayers = [
+  new BackgroundLayer(),
+  new MarkersLayer([10, 30, 60]),
+  new PlayheadLayer(),
+  new ZoomSelectionLayer(),
+  new HoverLayer()
+];
 ```
 
-## Constants
+## Interactions
 
-Layout and color constants are exported for custom layer authors:
+| Interaction | Action |
+|-------------|--------|
+| Click | Seek to time |
+| Drag playhead | Scrub through time |
+| Drag on track | Zoom to selection |
+| Scroll (horizontal) | Pan view |
+| Ctrl/Cmd + Scroll | Zoom at cursor |
+| Alt + Drag | Pan view |
+| Middle click + Drag | Pan view |
 
-```ts
-import { MONO_FONT, PLAYHEAD_HEAD_HEIGHT, LABEL_TOP_OFFSET } from 'svelte-interactive-timeline';
-import { ACCENT, ACCENT_LIGHT, GRID_MAJOR, GRID_MINOR } from 'svelte-interactive-timeline';
+## API Reference
+
+### Types
+
+```typescript
+type DragTarget = 'playhead' | 'pan' | 'zoom-region' | null;
+type HitTarget = 'playhead' | 'track' | 'empty';
+
+interface TimelineState {
+  dataStart: number;
+  dataEnd: number;
+  viewStart: number;
+  viewEnd: number;
+  currentTime: number;
+  leftX: number;
+  rightX: number;
+  hoveredTime: number | null;
+  isDragging: DragTarget;
+  zoomSelectionStart: number | null;
+  zoomSelectionEnd: number | null;
+}
+
+interface RenderContext {
+  ctx: CanvasRenderingContext2D;
+  state: TimelineState;
+  width: number;
+  height: number;
+  dpr: number;
+  timeToX: (time: number) => number;
+  xToTime: (x: number) => number;
+}
+
+interface RenderLayer {
+  name: string;
+  visible: boolean;
+  render(ctx: RenderContext): void;
+}
 ```
 
-## Interactions Reference
+### Utilities
 
-| Action | Effect |
-|--------|--------|
-| Click on track | Seek to position |
-| Drag playhead | Scrub |
-| Drag on track | Drag-to-zoom selection |
-| Ctrl/Cmd + scroll | Zoom at cursor |
-| Scroll (when zoomed) | Pan |
-| Alt + drag | Pan |
-| Middle-click + drag | Pan |
-| Zoom +/- buttons | Step zoom in/out |
-| Fit button | Reset to full view |
-| Speed label click | Cycle speed presets (Shift+click for slower) |
-
-## Development
-
-```bash
-git clone https://github.com/benshapiro/svelte-interactive-timeline.git
-cd svelte-interactive-timeline
-yarn install
-yarn dev        # dev server with demo page
-yarn check      # type checking
-yarn package    # build distributable to dist/
+```typescript
+import {
+  clamp,
+  mapRange,
+  formatTime,
+  calculateGridInterval,
+  generateGridLines,
+  zoomAtPoint,
+  panView,
+  getDevicePixelRatio
+} from 'svelte-interactive-timeline';
 ```
 
 ## License
 
-[MIT](LICENSE)
+MIT

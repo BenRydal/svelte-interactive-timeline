@@ -1,7 +1,7 @@
 /**
  * Timeline Types
  *
- * Core type definitions for the interactive timeline component.
+ * Core type definitions for the timeline component.
  */
 
 /** What the user is currently dragging */
@@ -52,28 +52,4 @@ export interface RenderLayer {
 	name: string;
 	visible: boolean;
 	render(ctx: RenderContext): void;
-}
-
-/** Callbacks for integrating timeline with external systems */
-export interface TimelineCallbacks {
-	/** Called when user seeks (clicks track or drags playhead) */
-	onSeek?: (time: number) => void;
-	/** Called when view window changes (zoom/pan) */
-	onViewChange?: (viewStart: number, viewEnd: number) => void;
-	/** Called to request a redraw of external visualization */
-	onRequestRedraw?: () => void;
-}
-
-/** Props for playback control integration */
-export interface PlaybackState {
-	isPlaying: boolean;
-	speedIndex: number;
-	speedPresets: { value: number; label: string }[];
-}
-
-/** Callbacks for playback controls */
-export interface PlaybackCallbacks {
-	onTogglePlayback?: () => void;
-	onPause?: () => void;
-	onSpeedChange?: (presetIndex: number) => void;
 }
