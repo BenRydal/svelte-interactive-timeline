@@ -2,15 +2,27 @@
  * Timeline Renderer
  *
  * Orchestrates rendering of all timeline layers onto a canvas.
- * Accepts optional custom layers for extensibility.
  */
 
-import type { TimelineState, RenderLayer, RenderContext } from '../types';
-import { mapRange, getDevicePixelRatio } from '../utils';
-import { BackgroundLayer } from './layers/background';
-import { PlayheadLayer } from './layers/playhead';
-import { HoverLayer } from './layers/hover';
-import { ZoomSelectionLayer } from './layers/zoom-selection';
+import type { TimelineState, RenderLayer, RenderContext } from '../core/types';
+import { mapRange, getDevicePixelRatio } from '../core/utils';
+import type { TimelineColorScheme } from '../config/colors';
+import type { TimelineLayoutConfig } from '../config/layout';
+import { defaultColorScheme } from '../config/colors';
+import { defaultLayoutConfig } from '../config/layout';
+import { BackgroundLayer } from './layers/BackgroundLayer';
+import { PlayheadLayer } from './layers/PlayheadLayer';
+import { HoverLayer } from './layers/HoverLayer';
+import { ZoomSelectionLayer } from './layers/ZoomSelectionLayer';
+
+export interface TimelineRendererConfig {
+	/** Custom layers (replaces default layers if provided) */
+	layers?: RenderLayer[];
+	/** Color scheme */
+	colors?: TimelineColorScheme;
+	/** Layout configuration */
+	layout?: TimelineLayoutConfig;
+}
 
 export class TimelineRenderer {
 	private canvas: HTMLCanvasElement;
@@ -22,53 +34,31 @@ export class TimelineRenderer {
 	private _height: number = 0;
 	private dpr: number;
 
-	/**
-	 * @param canvas - The canvas element to render onto
-	 * @param initialState - Initial timeline state
-	 * @param customLayers - Optional custom layers inserted between background and playhead
-	 */
-	constructor(canvas: HTMLCanvasElement, initialState: TimelineState, customLayers?: RenderLayer[]) {
+	constructor(
+		canvas: HTMLCanvasElement,
+		initialState: TimelineState,
+		config?: TimelineRendererConfig
+	) {
 		this.canvas = canvas;
 		this.ctx = canvas.getContext('2d')!;
 		this._state = initialState;
 		this.dpr = getDevicePixelRatio();
 
-		// Render order: background -> custom layers -> playhead -> zoom selection -> hover
-		this.layers = [
-			new BackgroundLayer(),
-			...(customLayers ?? []),
-			new PlayheadLayer(),
-			new ZoomSelectionLayer(),
-			new HoverLayer()
-		];
-	}
+		const colors = config?.colors ?? defaultColorScheme;
+		const layout = config?.layout ?? defaultLayoutConfig;
 
-	/**
-	 * Add a layer dynamically (inserted before PlayheadLayer)
-	 */
-	addLayer(layer: RenderLayer): void {
-		const playheadIndex = this.layers.findIndex((l) => l.name === 'playhead');
-		if (playheadIndex >= 0) {
-			this.layers.splice(playheadIndex, 0, layer);
+		// Use provided layers or create default layer stack
+		if (config?.layers) {
+			this.layers = config.layers;
 		} else {
-			this.layers.push(layer);
+			// Default layer stack (render order: bottom to top)
+			this.layers = [
+				new BackgroundLayer(colors, layout),
+				new PlayheadLayer(colors, layout),
+				new ZoomSelectionLayer(colors),
+				new HoverLayer(colors, layout)
+			];
 		}
-		this.requestRender();
-	}
-
-	/**
-	 * Remove a layer by name
-	 */
-	removeLayer(name: string): void {
-		this.layers = this.layers.filter((l) => l.name !== name);
-		this.requestRender();
-	}
-
-	/**
-	 * Get a layer by name (for external state updates)
-	 */
-	getLayer<T extends RenderLayer>(name: string): T | undefined {
-		return this.layers.find((l) => l.name === name) as T | undefined;
 	}
 
 	/**
@@ -87,6 +77,7 @@ export class TimelineRenderer {
 		this.canvas.style.width = `${width}px`;
 		this.canvas.style.height = `${height}px`;
 
+		// Request re-render
 		this.requestRender();
 	}
 
@@ -107,7 +98,7 @@ export class TimelineRenderer {
 	}
 
 	/**
-	 * Render a single frame
+	 * Main render loop
 	 */
 	private render(): void {
 		this.animationFrame = null;
@@ -116,10 +107,14 @@ export class TimelineRenderer {
 
 		if (width === 0 || height === 0) return;
 
+		// Save state and scale for DPI
 		ctx.save();
 		ctx.scale(dpr, dpr);
+
+		// Clear canvas
 		ctx.clearRect(0, 0, width, height);
 
+		// Create render context with coordinate helpers
 		const renderCtx: RenderContext = {
 			ctx,
 			state,
@@ -159,6 +154,49 @@ export class TimelineRenderer {
 	}
 
 	/**
+	 * Get a layer by name
+	 */
+	getLayer(name: string): RenderLayer | undefined {
+		return this.layers.find((l) => l.name === name);
+	}
+
+	/**
+	 * Add a layer to the stack
+	 */
+	addLayer(layer: RenderLayer, index?: number): void {
+		if (index !== undefined) {
+			this.layers.splice(index, 0, layer);
+		} else {
+			this.layers.push(layer);
+		}
+		this.requestRender();
+	}
+
+	/**
+	 * Remove a layer by name
+	 */
+	removeLayer(name: string): boolean {
+		const index = this.layers.findIndex((l) => l.name === name);
+		if (index !== -1) {
+			this.layers.splice(index, 1);
+			this.requestRender();
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Set layer visibility
+	 */
+	setLayerVisible(name: string, visible: boolean): void {
+		const layer = this.getLayer(name);
+		if (layer) {
+			layer.visible = visible;
+			this.requestRender();
+		}
+	}
+
+	/**
 	 * Cleanup
 	 */
 	destroy(): void {
@@ -177,5 +215,12 @@ export class TimelineRenderer {
 
 	get height(): number {
 		return this._height;
+	}
+
+	/**
+	 * Get all layers
+	 */
+	get allLayers(): RenderLayer[] {
+		return this.layers;
 	}
 }

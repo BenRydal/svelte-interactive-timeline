@@ -57,9 +57,27 @@ export function calculateGridInterval(visibleDuration: number, maxLabels: number
 
 	// Nice intervals in seconds
 	const niceIntervals = [
-		0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, // 1 min
-		120, 300, 600, 900, 1800, 3600, // 1 hour
-		7200, 14400, 28800, 43200, 86400 // 1 day
+		0.1,
+		0.25,
+		0.5,
+		1,
+		2,
+		5,
+		10,
+		15,
+		30,
+		60, // 1 min
+		120,
+		300,
+		600,
+		900,
+		1800,
+		3600, // 1 hour
+		7200,
+		14400,
+		28800,
+		43200,
+		86400 // 1 day
 	];
 
 	// Find the smallest nice interval >= target
