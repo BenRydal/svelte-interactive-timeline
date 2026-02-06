@@ -1,6 +1,6 @@
 {
   "name": "svelte-interactive-timeline",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "A canvas-based interactive timeline component for Svelte 5 with zoom, pan, and pluggable rendering layers",
   "type": "module",
   "svelte": "./dist/index.js",
